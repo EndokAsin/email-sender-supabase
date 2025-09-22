@@ -195,7 +195,6 @@
                 const { data, error } = await supabase.functions.invoke('send-emails', {
                     method: 'POST',
                     body: formData,
-                    // Karena menggunakan FormData, header Content-Type akan diatur secara otomatis oleh browser
                 });
 
                 if (error) {
