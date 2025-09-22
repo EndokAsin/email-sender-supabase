@@ -30,9 +30,9 @@
         </header>
 
         <form id="emailForm" class="space-y-6">
-            <!-- Unggah File Excel -->
+            <!-- Unggah File CSV -->
             <div>
-                <label for="excelFile" class="block text-sm font-medium text-gray-700 mb-2">Unggah File (CSV atau XLSX)</label>
+                <label for="excelFile" class="block text-sm font-medium text-gray-700 mb-2">Unggah Daftar Penerima (CSV atau XLSX)</label>
                 <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                     <div class="space-y-1 text-center">
                         <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
@@ -46,6 +46,27 @@
                             <p class="pl-1">atau seret dan lepas di sini</p>
                         </div>
                         <p id="fileName" class="text-xs text-gray-500"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unggah File Lampiran -->
+            <div>
+                <label for="attachmentFile" class="block text-sm font-medium text-gray-700 mb-2">Unggah File Lampiran (Opsional)</label>
+                <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                    <div class="space-y-1 text-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12h.01m17.5 0h.01M6.87 18.06l-.51-.12c-.93-.22-1.85.12-2.31.96-1.12 2.05-3.08 1.13-2.92-.88a1.5 1.5 0 01.37-.56l1.3-1.3c.6-.6.6-1.57 0-2.17l-.55-.56a1.5 1.5 0 010-2.12l1.3-1.3c.6-.6.6-1.57 0-2.17l-.55-.56a1.5 1.5 0 01-.19-2.06c.47-.84 1.39-1.18 2.32-.96l.51.12.51.12c.93.22 1.85-.12 2.31-.96a1.5 1.5 0 012.92.88c.16 1.13-.8 2.05-2.08 2.31l-.51.12z" />
+                        </svg>
+                        <div class="flex text-sm text-gray-600">
+                            <label for="attachmentFile" class="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                                <span>Pilih file</span>
+                                <input id="attachmentFile" name="attachments" type="file" multiple class="sr-only">
+                            </label>
+                            <p class="pl-1">atau seret dan lepas di sini</p>
+                        </div>
+                        <p id="attachmentFileName" class="text-xs text-gray-500"></p>
                     </div>
                 </div>
             </div>
@@ -102,7 +123,9 @@
         // Elemen DOM
         const form = document.getElementById('emailForm');
         const fileInput = document.getElementById('excelFile');
+        const attachmentInput = document.getElementById('attachmentFile');
         const fileNameSpan = document.getElementById('fileName');
+        const attachmentFileNameSpan = document.getElementById('attachmentFileName');
         const statusMessageDiv = document.getElementById('statusMessage');
         const submitBtn = document.getElementById('submitBtn');
         const buttonTextSpan = document.getElementById('buttonText');
@@ -119,6 +142,19 @@
                 fileNameSpan.textContent = '';
             }
         });
+        
+        // Event listener untuk menampilkan nama file lampiran yang diunggah
+        attachmentInput.addEventListener('change', () => {
+            const files = attachmentInput.files;
+            if (files.length > 0) {
+                const fileNames = Array.from(files).map(file => file.name).join(', ');
+                attachmentFileNameSpan.textContent = `${files.length} file dipilih: ${fileNames}`;
+                attachmentFileNameSpan.classList.remove('text-gray-500');
+                attachmentFileNameSpan.classList.add('text-green-600');
+            } else {
+                attachmentFileNameSpan.textContent = '';
+            }
+        });
 
         // Event listener untuk pengiriman formulir
         form.addEventListener('submit', async (e) => {
@@ -126,12 +162,13 @@
 
             // Ambil data dari formulir
             const file = fileInput.files[0];
+            const attachments = attachmentInput.files;
             const subject = document.getElementById('subject').value;
             const message = document.getElementById('message').value;
 
             // Validasi sederhana
             if (!file) {
-                showStatus('danger', 'Silakan unggah file Excel atau CSV terlebih dahulu.');
+                showStatus('danger', 'Silakan unggah file CSV terlebih dahulu.');
                 return;
             }
 
@@ -142,7 +179,6 @@
             showStatus('info', 'Mengirim data ke server...');
 
             // --- Panggilan Nyata ke Supabase Edge Function ---
-            // Edge Function ini akan memproses file dan mengirim email menggunakan API Resend.
             try {
                 // Buat objek FormData untuk mengirim file
                 const formData = new FormData();
@@ -150,14 +186,16 @@
                 formData.append('subject', subject);
                 formData.append('message', message);
                 
+                // Tambahkan lampiran ke FormData
+                for (let i = 0; i < attachments.length; i++) {
+                    formData.append('attachments', attachments[i]);
+                }
+                
                 // Panggil Edge Function 'send-emails'
-                // Catatan: Pastikan Anda telah mengonfigurasi Edge Function ini di Supabase.
                 const { data, error } = await supabase.functions.invoke('send-emails', {
                     method: 'POST',
-                    body: formData, // Mengirim data sebagai FormData
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
+                    body: formData,
+                    // Karena menggunakan FormData, header Content-Type akan diatur secara otomatis oleh browser
                 });
 
                 if (error) {
@@ -173,6 +211,7 @@
                 // Kosongkan formulir setelah pengiriman berhasil
                 form.reset();
                 fileNameSpan.textContent = '';
+                attachmentFileNameSpan.textContent = '';
                 
             } catch (error) {
                 console.error('Panggilan fungsi gagal:', error);
